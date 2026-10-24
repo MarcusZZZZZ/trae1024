@@ -1,0 +1,17 @@
+# 运行时数据库
+melon.db
+melon.db-wal
+melon.db-shm
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 打包产物
+.trae-html-share-packages/

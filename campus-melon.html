@@ -1,0 +1,2184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>校园瓜田 · 凑热闹打分器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#070512; --panel:#120e2c; --line:#2a2166;
+    --pink:#ff4d9d; --pink-dark:#7a1247; --cyan:#63f5e6;
+    --yellow:#ffd95e; --green:#8bffb0; --purple:#b79bff; --red:#ff5c5c;
+    --text:#f2eeff; --muted:#9a90d4; --dim:#6e66a8;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:20px;
+    background:
+      radial-gradient(1100px 560px at 10% -10%, rgba(255,77,157,.16), transparent 62%),
+      radial-gradient(900px 520px at 104% 108%, rgba(99,245,230,.12), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:"Silkscreen","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+    letter-spacing:.02em;
+  }
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size:26px 26px;
+    -webkit-mask-image:radial-gradient(ellipse at center, #000 15%, transparent 78%);
+    mask-image:radial-gradient(ellipse at center, #000 15%, transparent 78%);
+  }
+  button,input,textarea{font-family:inherit}
+
+  .cabinet{
+    position:relative; width:min(1180px,100%); margin:0 auto;
+    padding:15px 18px 12px;
+    background:linear-gradient(180deg,#151039,#0e0a24 62%,#0c0820);
+    border:4px solid #05030f; outline:2px solid #3a2f86;
+    box-shadow:0 0 0 6px #0a0718, 0 0 0 9px #221a5c,
+      0 26px 70px rgba(0,0,0,.62), 0 0 70px rgba(255,77,157,.10);
+  }
+  .scanlines{
+    position:absolute; inset:0; z-index:8; pointer-events:none; opacity:.45;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px);
+  }
+
+  /* ============ 顶栏 ============ */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding-bottom:11px; margin-bottom:14px; flex-wrap:wrap;
+    border-bottom:2px dashed rgba(255,255,255,.12);
+  }
+  .brand{display:flex; align-items:center; gap:11px; min-width:0}
+  .led{
+    width:10px; height:10px; flex:none; background:var(--green);
+    box-shadow:0 0 10px var(--green),0 0 22px rgba(139,255,176,.5);
+    animation:pulse 1.6s infinite steps(2);
+  }
+  h1{
+    margin:0; font-size:clamp(17px,2vw,22px); font-weight:700; letter-spacing:.10em;
+    text-shadow:2px 2px 0 #000, 0 0 16px rgba(255,77,157,.45); white-space:nowrap;
+  }
+  h1 em{
+    font-family:"Press Start 2P",monospace; font-style:normal;
+    font-size:clamp(8px,.95vw,10px); color:var(--pink);
+    margin-left:9px; letter-spacing:0; text-shadow:2px 2px 0 #000; vertical-align:2px;
+  }
+  .top-actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .campus-chip{
+    display:flex; align-items:center; gap:7px; padding:6px 9px;
+    color:var(--text); background:#0d0a22; border:2px solid var(--line);
+    font-family:"Microsoft YaHei",sans-serif; font-size:11px; cursor:pointer; transition:.12s;
+  }
+  .campus-chip:hover{border-color:var(--cyan)}
+  .campus-dot{width:8px; height:8px; flex:none; background:var(--yellow); box-shadow:0 0 8px currentColor}
+  .caret{font-size:9px; color:var(--dim)}
+  .user-chip{
+    display:flex; align-items:center; gap:8px; padding:4px 8px 4px 4px;
+    color:var(--text); background:#0d0a22; border:2px solid var(--line);
+    font-family:"Microsoft YaHei",sans-serif; font-size:11px; cursor:pointer; transition:.12s;
+  }
+  .user-chip:hover{border-color:var(--pink)}
+  .user-chip canvas{width:22px; height:28px; image-rendering:pixelated; background:#0a0820; border:1px solid #241d55}
+  .user-chip .edit{font-family:"Silkscreen",monospace; font-size:8px; color:var(--pink)}
+  .chip{
+    padding:6px 9px; color:var(--cyan); background:#0e0a24; border:2px solid var(--line);
+    font-family:"Silkscreen",monospace; font-size:10px; letter-spacing:.08em; cursor:pointer; transition:.12s;
+  }
+  .chip:hover{border-color:var(--cyan); box-shadow:0 0 12px rgba(99,245,230,.25)}
+  .chip[aria-pressed="false"]{color:var(--dim); border-color:#241d55}
+
+  /* ============ 布局 ============ */
+  .layout{
+    display:grid; gap:14px; align-items:start;
+    grid-template-columns:minmax(0,1.5fr) minmax(320px,.86fr);
+    grid-template-areas:"scene rank" "feed rank";
+  }
+  .scene-panel{grid-area:scene; min-width:0}
+  .rank-panel{grid-area:rank; position:sticky; top:12px; display:flex; flex-direction:column; gap:11px; min-width:0}
+  .feed-block{grid-area:feed; min-width:0}
+
+  /* ============ 现场 ============ */
+  .screen{
+    position:relative; aspect-ratio:240/100; overflow:hidden;
+    background:#0a0820; border:4px solid #05030f; outline:2px solid var(--line);
+    box-shadow:inset 0 0 50px rgba(255,77,157,.09), inset 0 0 0 1px rgba(255,255,255,.05);
+  }
+  #scene{display:block; width:100%; height:100%; image-rendering:pixelated}
+  .hud{
+    position:absolute; z-index:3; display:flex; align-items:center; gap:6px;
+    padding:5px 7px; font-family:"Silkscreen",monospace; font-size:9px; letter-spacing:.06em;
+    color:#cfe7ff; background:rgba(7,5,18,.78); border:2px solid var(--line);
+  }
+  .hud-tl{top:8px; left:8px}
+  .hud-tr{top:8px; right:8px; color:var(--pink)}
+  .hud b{
+    display:inline-block; font-family:"Press Start 2P",monospace;
+    font-weight:400; font-size:12px; color:var(--yellow); letter-spacing:0;
+  }
+  #crowdNum.pop{animation:numPop .32s ease-out}
+  .livedot{
+    width:6px; height:6px; flex:none; background:var(--pink);
+    box-shadow:0 0 6px var(--pink); animation:pulse 1s infinite steps(2);
+  }
+  .bubble{
+    position:absolute; left:9px; bottom:9px; z-index:3; max-width:62%;
+    padding:6px 9px; font-family:"Microsoft YaHei",sans-serif; font-weight:700;
+    font-size:12px; line-height:1.4; color:#161043; background:#f5f2ff;
+    border:2px solid #05030f; box-shadow:3px 3px 0 rgba(0,0,0,.55);
+    opacity:0; transform:translateY(5px); transition:opacity .18s, transform .18s;
+    pointer-events:none;
+  }
+  .bubble.show{opacity:1; transform:none}
+  .flash{position:absolute; inset:0; z-index:4; background:#fff; opacity:0; pointer-events:none; mix-blend-mode:screen}
+  .flash.go{animation:flashOut .3s ease-out}
+  .join-float{
+    position:absolute; right:9px; bottom:9px; z-index:4;
+    padding:8px 11px; color:#1a0b24; background:var(--pink);
+    border:2px solid #05030f; box-shadow:0 4px 0 var(--pink-dark);
+    font-family:"Silkscreen","Microsoft YaHei",sans-serif; font-size:11px; cursor:pointer;
+    transition:transform .06s, box-shadow .06s;
+  }
+  .join-float:hover{filter:brightness(1.08)}
+  .join-float:active{transform:translateY(3px); box-shadow:0 1px 0 var(--pink-dark)}
+
+  .scene-foot{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-top:9px; min-width:0; font-family:"Microsoft YaHei",sans-serif;
+    font-size:11px; color:var(--dim);
+  }
+  .now{display:flex; align-items:center; gap:8px; min-width:0}
+  .now-k{
+    flex:none; padding:2px 5px; color:var(--cyan);
+    border:1px dashed rgba(99,245,230,.4);
+    font-family:"Silkscreen","Microsoft YaHei",sans-serif; font-size:9px;
+  }
+  #nowTitle{color:#cfc8f5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .hint{flex:none; font-family:"Silkscreen",monospace; font-size:8px; color:var(--dim); letter-spacing:.05em}
+
+  /* ============ 定位面板 ============ */
+  .rank-card{
+    padding:12px; background:#0d0a22; border:3px solid #05030f; outline:2px solid var(--line);
+    box-shadow:inset 0 0 22px rgba(99,245,230,.05);
+  }
+  .now-label{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    font-family:"Silkscreen","Microsoft YaHei",sans-serif;
+    font-size:9px; letter-spacing:.1em; color:var(--cyan);
+  }
+  .cat-chip{
+    display:inline-block; padding:2px 5px; color:var(--c,var(--cyan));
+    border:1px solid var(--c,var(--cyan)); letter-spacing:.02em; white-space:nowrap;
+    font-family:"Silkscreen","Microsoft YaHei",sans-serif; font-size:9px;
+  }
+  #rankTitle{
+    margin:8px 0 5px; font-family:"Microsoft YaHei",sans-serif;
+    font-size:clamp(16px,1.5vw,18px); line-height:1.4; text-shadow:2px 2px 0 #000;
+  }
+  .rank-meta{
+    display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;
+    font-family:"Microsoft YaHei",sans-serif; font-size:10px; color:var(--dim);
+  }
+  .rank-text{
+    margin:0 0 11px; color:var(--muted);
+    font-family:"Microsoft YaHei",sans-serif; font-size:11px; line-height:1.55;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .rank-text:empty{display:none}
+  .block-label{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px;
+    font-family:"Silkscreen","Microsoft YaHei",sans-serif; font-size:10px;
+    letter-spacing:.06em; color:var(--muted);
+  }
+  .muted{color:var(--dim); font-size:9px; letter-spacing:.03em}
+  .tier-rows{display:flex; flex-direction:column; gap:4px}
+  .tier-row{
+    display:grid; grid-template-columns:74px minmax(0,1fr) 42px; align-items:center; gap:9px;
+    width:100%; padding:5px 6px; text-align:left; cursor:pointer;
+    background:transparent; border:2px solid transparent; transition:.12s;
+    color:var(--text);
+  }
+  .tier-row:hover{background:#151039; border-color:#241d55}
+  .tier-row.mine{
+    border-color:var(--pink); background:rgba(255,77,157,.08);
+    box-shadow:0 0 14px rgba(255,77,157,.16);
+  }
+  .tier-name{
+    display:flex; flex-direction:column; gap:1px; line-height:1.05;
+    font-family:"Microsoft YaHei",sans-serif; font-weight:800;
+    font-size:15px; color:var(--tier);
+  }
+  .tier-name i{
+    font-style:normal; font-weight:400; font-size:8px; color:var(--dim);
+    font-family:"Silkscreen","Microsoft YaHei",sans-serif; letter-spacing:.02em;
+  }
+  .tier-track{
+    position:relative; height:12px; overflow:hidden;
+    background:#0a0820; border:2px solid #241d55;
+  }
+  .tier-track::before{
+    content:""; position:absolute; inset:0; opacity:.5;
+    background:repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 1px, transparent 1px 9px);
+  }
+  .tier-fill{
+    position:absolute; left:0; top:0; bottom:0; width:0;
+    background:var(--tier); box-shadow:0 0 10px var(--tier);
+    transition:width .45s cubic-bezier(.2,.9,.2,1);
+  }
+  .tier-pct{
+    text-align:right; font-family:"Press Start 2P",monospace; font-size:9px;
+    color:var(--muted); letter-spacing:0;
+  }
+  .tier-row.mine .tier-pct{color:var(--pink)}
+
+  .verdict{
+    display:flex; align-items:flex-start; gap:8px; margin-top:10px; padding:8px 9px;
+    background:#120c2a; border-left:3px solid var(--yellow);
+    font-family:"Microsoft YaHei",sans-serif; font-size:12px; line-height:1.5;
+  }
+  .verdict-k{
+    flex:none; padding-top:2px; font-family:"Silkscreen","Microsoft YaHei",sans-serif;
+    font-size:9px; color:var(--yellow);
+  }
+  #verdictText{color:#e7e2ff}
+  .echo{
+    display:flex; align-items:flex-start; gap:8px; min-height:38px; margin-top:8px; padding:7px 9px;
+    background:#0b0820; border-left:3px solid var(--cyan);
+    font-family:"Microsoft YaHei",sans-serif; font-size:12px; line-height:1.5;
+  }
+  .echo-label{
+    flex:none; padding-top:2px; font-family:"Silkscreen","Microsoft YaHei",sans-serif;
+    font-size:9px; color:var(--cyan);
+  }
+  #echoText{color:#e7e2ff}
+  #echoText::after{content:"▌"; color:var(--pink); animation:pulse .9s infinite steps(2)}
+
+  .side-stats{display:grid; grid-template-columns:1fr 1fr; gap:9px}
+  .stat{display:flex; flex-direction:column; gap:3px; padding:8px 9px; background:#0d0a22; border:2px solid var(--line)}
+  .stat-k{font-family:"Silkscreen","Microsoft YaHei",sans-serif; font-size:8px; letter-spacing:.06em; color:var(--dim)}
+  .stat b{
+    font-family:"Press Start 2P",monospace; font-size:13px; font-weight:400;
+    color:var(--yellow); text-shadow:0 0 12px rgba(255,217,94,.3);
+  }
+
+  /* ============ 内容流 ============ */
+  .feed-head{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    padding-bottom:10px; margin-bottom:11px; border-bottom:2px dashed rgba(255,255,255,.12);
+  }
+  .feed-title{
+    font-family:"Microsoft YaHei",sans-serif; font-size:15px; font-weight:700;
+    color:var(--text); letter-spacing:.08em; white-space:nowrap;
+  }
+  .feed-title .muted{font-family:"Silkscreen","Microsoft YaHei",sans-serif; font-size:9px; margin-left:4px}
+  .tabs{display:flex; gap:5px; flex-wrap:wrap; flex:1; min-width:0}
+  .tab{
+    display:inline-flex; align-items:center; gap:5px; padding:5px 8px;
+    color:var(--muted); background:#0e0a24; border:2px solid #241d55;
+    font-family:"Silkscreen","Microsoft YaHei",sans-serif; font-size:10px; cursor:pointer; transition:.12s;
+  }
+  .tab:hover{border-color:var(--tab,var(--cyan)); color:var(--tab,var(--cyan))}
+  .tab.active{background:var(--tab,var(--cyan)); border-color:#05030f; color:#140b20}
+  .count{
+    padding:2px 4px; background:rgba(0,0,0,.22);
+    font-family:"Press Start 2P",monospace; font-size:7px; color:inherit;
+  }
+  .btn{
+    padding:10px 14px; color:#1a0b24; background:var(--pink); border:3px solid #05030f;
+    font-family:"Silkscreen","Microsoft YaHei",sans-serif; font-size:12px; font-weight:700;
+    letter-spacing:.03em; cursor:pointer;
+    box-shadow:0 5px 0 var(--pink-dark), 0 8px 0 rgba(0,0,0,.35);
+    transition:transform .06s, box-shadow .06s, filter .12s;
+  }
+  .btn:hover{filter:brightness(1.08)}
+  .btn:active{transform:translateY(4px); box-shadow:0 1px 0 var(--pink-dark)}
+  .btn.publish{flex:none; padding:8px 11px; font-size:11px}
+  .btn.ghost{color:var(--cyan); background:#1b1550; box-shadow:0 4px 0 #0b0820; font-size:10px}
+  .btn.ghost:active{transform:translateY(3px); box-shadow:0 1px 0 #0b0820}
+  .kbd{
+    padding:2px 4px; font-family:"Silkscreen",monospace; font-size:8px;
+    background:rgba(0,0,0,.22); border:1px solid rgba(0,0,0,.4); color:#1a0b24;
+  }
+
+  .feed-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px}
+  .post-card{
+    display:flex; flex-direction:column; text-align:left; cursor:pointer; overflow:hidden;
+    color:var(--text); background:#0d0a22; border:3px solid #05030f; outline:2px solid #241d55;
+    padding:0; transition:transform .12s, outline-color .12s, box-shadow .12s;
+  }
+  .post-card:hover{transform:translateY(-3px); outline-color:var(--cyan)}
+  .post-card.selected{outline-color:var(--pink); box-shadow:0 0 0 2px rgba(255,77,157,.25), 0 0 24px rgba(255,77,157,.18)}
+  .thumb{
+    position:relative; aspect-ratio:4/3; overflow:hidden;
+    background:#0a0820; border-bottom:3px solid #05030f;
+  }
+  .thumb canvas,.thumb img{display:block; width:100%; height:100%; object-fit:cover; image-rendering:pixelated}
+  .card-body{padding:9px 10px 10px; display:flex; flex-direction:column; gap:7px}
+  .card-top{display:flex; align-items:center; justify-content:space-between; gap:6px}
+  .heat{font-family:"Silkscreen",monospace; font-size:8px; color:var(--dim); white-space:nowrap}
+  .post-title{
+    font-family:"Microsoft YaHei",sans-serif; font-weight:700; font-size:13px; line-height:1.45;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .card-foot{
+    display:flex; align-items:center; justify-content:space-between; gap:6px;
+    font-family:"Microsoft YaHei",sans-serif; font-size:10px; color:var(--dim);
+  }
+  .card-foot .author{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .my-mark{
+    flex:none; padding:1px 4px; color:var(--pink);
+    border:1px dashed rgba(255,77,157,.5); font-size:9px; white-space:nowrap;
+  }
+  .empty{
+    grid-column:1/-1; padding:34px 16px; text-align:center;
+    color:var(--dim); font-family:"Microsoft YaHei",sans-serif; font-size:12px;
+    border:2px dashed var(--line); background:rgba(255,255,255,.015);
+  }
+
+  /* ============ 弹幕 ============ */
+  .ticker{
+    margin-top:14px; padding:8px 0; overflow:hidden; white-space:nowrap;
+    border-top:2px dashed rgba(255,255,255,.12); border-bottom:2px dashed rgba(255,255,255,.12);
+    font-family:"Microsoft YaHei",sans-serif; font-size:12px; color:#b7aee6;
+  }
+  .ticker-track{display:inline-flex; animation:tick 36s linear infinite; will-change:transform}
+  .ticker:hover .ticker-track{animation-play-state:paused}
+
+  /* ============ 弹窗 ============ */
+  .modal{
+    position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center;
+    padding:20px; background:rgba(4,2,12,.82);
+  }
+  .modal.show{display:flex}
+  .modal-box{
+    width:min(560px,100%); max-height:92vh; overflow:auto; padding:16px;
+    background:#0e0a26; border:3px solid #05030f; outline:2px solid #3a2f86;
+    box-shadow:0 24px 70px rgba(0,0,0,.7), 0 0 50px rgba(255,77,157,.12);
+  }
+  .modal-box.wide{width:min(680px,100%)}
+  .modal-head{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+    padding-bottom:10px; margin-bottom:14px; border-bottom:2px dashed rgba(255,255,255,.12);
+  }
+  .modal-head h3{
+    margin:0; display:flex; flex-direction:column; gap:4px;
+    font-family:"Microsoft YaHei",sans-serif; font-size:17px; text-shadow:2px 2px 0 #000;
+  }
+  .modal-head .muted{font-family:"Microsoft YaHei",sans-serif; font-size:11px; font-weight:400; color:var(--dim); text-shadow:none}
+  .x{
+    width:28px; height:28px; flex:none; color:var(--muted); background:#1b1550;
+    border:2px solid var(--line); font-family:monospace; font-size:15px; cursor:pointer;
+  }
+  .x:hover{color:var(--pink); border-color:var(--pink)}
+  .field{margin-bottom:13px}
+  .field > label{
+    display:block; margin-bottom:6px; color:var(--cyan);
+    font-family:"Silkscreen","Microsoft YaHei",sans-serif; font-size:10px; letter-spacing:.05em;
+  }
+  .field input[type=text],.field textarea{
+    width:100%; padding:9px 10px; color:var(--text); background:#0a0820;
+    border:2px solid var(--line); outline:none;
+    font-family:"Microsoft YaHei",sans-serif; font-size:13px; line-height:1.5;
+  }
+  .field input[type=text]:focus,.field textarea:focus{border-color:var(--cyan); box-shadow:0 0 0 2px rgba(99,245,230,.14)}
+  .field textarea{resize:vertical; min-height:72px}
+  .field.error input[type=text]{border-color:var(--red); animation:shake .3s}
+  .chips{display:flex; flex-wrap:wrap; gap:6px}
+  .choice{
+    padding:6px 9px; color:var(--muted); background:#0e0a24; border:2px solid #241d55;
+    font-family:"Silkscreen","Microsoft YaHei",sans-serif; font-size:10px; cursor:pointer; transition:.1s;
+  }
+  .choice:hover{border-color:var(--c,var(--cyan)); color:var(--c,var(--cyan))}
+  .choice.active{background:var(--c,var(--cyan)); color:#140b20; border-color:#05030f}
+  .upload-row{display:flex; gap:10px; align-items:stretch}
+  .uploader{
+    flex:none; display:flex; align-items:center; justify-content:center; text-align:center;
+    padding:10px 12px; color:var(--cyan); background:rgba(99,245,230,.05);
+    border:2px dashed rgba(99,245,230,.45); cursor:pointer;
+    font-family:"Silkscreen","Microsoft YaHei",sans-serif; font-size:10px;
+  }
+  .uploader:hover{background:rgba(99,245,230,.1)}
+  .uploader input{display:none}
+  .preview{
+    flex:1; min-width:0; height:100px; display:flex; align-items:center; justify-content:center;
+    padding:6px; overflow:hidden; text-align:center;
+    color:var(--dim); background:#0a0820; border:2px dashed var(--line);
+    font-family:"Microsoft YaHei",sans-serif; font-size:11px;
+  }
+  .preview img{width:100%; height:100%; object-fit:cover}
+  .modal-foot{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-top:4px; padding-top:12px; border-top:2px dashed rgba(255,255,255,.12);
+  }
+  .modal-foot .muted{font-family:"Microsoft YaHei",sans-serif; font-size:11px}
+
+  /* 校园选择 */
+  .campus-grid{display:grid; grid-template-columns:1fr 1fr; gap:9px}
+  .campus-card{
+    display:flex; align-items:center; gap:10px; padding:12px; text-align:left;
+    color:var(--text); background:#0d0a22; border:3px solid #05030f; outline:2px solid #241d55;
+    cursor:pointer; transition:.12s;
+  }
+  .campus-card:hover{transform:translateY(-2px); outline-color:var(--cc,var(--cyan))}
+  .campus-card.current{outline-color:var(--pink); box-shadow:0 0 0 2px rgba(255,77,157,.22)}
+  .campus-mark{
+    width:26px; height:28px; flex:none; background:var(--cc);
+    border:2px solid #05030f; box-shadow:inset -5px -5px 0 rgba(0,0,0,.22);
+  }
+  .campus-card b{display:block; font-family:"Microsoft YaHei",sans-serif; font-size:14px}
+  .campus-card small{display:block; margin-top:3px; color:var(--dim); font-family:"Microsoft YaHei",sans-serif; font-size:10px}
+
+  /* 捏人 */
+  .studio-body{display:grid; grid-template-columns:190px minmax(0,1fr); gap:16px}
+  .avatar-stage{
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    padding:12px; background:#0a0820; border:2px solid var(--line);
+  }
+  #avatarCanvas{
+    width:128px; height:160px; display:block; image-rendering:pixelated;
+    background-image:conic-gradient(#171143 25%, #0f0b2c 0 50%, #171143 0 75%, #0f0b2c 0);
+    background-size:16px 16px; border:2px solid #05030f;
+  }
+  .name-field{width:100%}
+  .name-field label{
+    display:block; margin-bottom:5px; color:var(--cyan);
+    font-family:"Silkscreen","Microsoft YaHei",sans-serif; font-size:9px;
+  }
+  .name-field input{
+    width:100%; padding:7px 8px; color:var(--text); background:#0e0a24;
+    border:2px solid var(--line); outline:none;
+    font-family:"Microsoft YaHei",sans-serif; font-size:12px;
+  }
+  .name-field input:focus{border-color:var(--cyan)}
+  .avatar-opts{display:flex; flex-direction:column; gap:11px; min-width:0}
+  .opt-row{display:flex; flex-wrap:wrap; gap:5px}
+  .swatches{display:flex; flex-wrap:wrap; gap:6px}
+  .swatch{
+    width:24px; height:24px; padding:0; cursor:pointer;
+    border:3px solid #05030f; outline:1px solid #241d55;
+  }
+  .swatch.active{outline:2px solid var(--pink); box-shadow:0 0 10px rgba(255,77,157,.5)}
+
+  /* 提示 */
+  .toast{
+    position:fixed; left:50%; bottom:28px; z-index:60; transform:translate(-50%,14px);
+    padding:9px 14px; color:#161043; background:#f5f2ff; border:3px solid #05030f;
+    box-shadow:4px 4px 0 rgba(0,0,0,.5);
+    font-family:"Microsoft YaHei",sans-serif; font-size:12px; font-weight:700;
+    opacity:0; pointer-events:none; transition:.2s;
+  }
+  .toast.show{opacity:1; transform:translate(-50%,0)}
+
+  @keyframes pulse{0%,49%{opacity:1}50%,100%{opacity:.22}}
+  @keyframes numPop{0%{transform:scale(1.28); color:#fff}100%{transform:scale(1); color:var(--yellow)}}
+  @keyframes flashOut{0%{opacity:.85}100%{opacity:0}}
+  @keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+  @media (max-width:960px){
+    body{padding:12px}
+    .layout{grid-template-columns:1fr; grid-template-areas:"scene" "rank" "feed"}
+    .rank-panel{position:static}
+    .rank-card{display:grid; grid-template-columns:1fr; gap:0}
+    .studio-body{grid-template-columns:1fr}
+    .avatar-stage{flex-direction:row; justify-content:center}
+    #avatarCanvas{width:96px; height:120px}
+    .campus-grid{grid-template-columns:1fr}
+  }
+  @media (max-width:620px){
+    h1 em{display:block; margin:4px 0 0}
+    .hint{display:none}
+    .feed-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+    .tier-name{font-size:14px}
+    .tier-row{grid-template-columns:66px minmax(0,1fr) 38px; gap:6px}
+  }
+</style>
+</head>
+<body>
+<div class="cabinet">
+  <div class="scanlines"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="led"></span>
+      <h1>校园瓜田<em>MELON.CAMP</em></h1>
+    </div>
+    <div class="top-actions">
+      <button class="campus-chip" id="campusChip" type="button">
+        <span class="campus-dot" id="campusDot"></span>
+        <span id="campusName">选择校园</span>
+        <span class="caret">▾</span>
+      </button>
+      <button class="user-chip" id="userChip" type="button">
+        <canvas id="miniAvatar" width="16" height="20"></canvas>
+        <span id="userName">我</span>
+        <span class="edit">捏人</span>
+      </button>
+      <button class="chip" id="soundBtn" aria-pressed="true" type="button">♪ ON</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="scene-panel">
+      <div class="screen">
+        <canvas id="scene" width="240" height="100" aria-label="像素校园广场"></canvas>
+        <div class="hud hud-tl"><span class="livedot"></span>在场 <b id="crowdNum">0</b> 人</div>
+        <div class="hud hud-tr"><span class="livedot"></span><span id="sceneCat">LIVE</span></div>
+        <div class="bubble" id="bubble">挤一挤，让一让。</div>
+        <div class="flash" id="flash"></div>
+        <button class="join-float" id="joinBtn" type="button">+1 凑热闹</button>
+      </div>
+      <div class="scene-foot">
+        <div class="now">
+          <span class="now-k">正在围观</span>
+          <span id="nowTitle">—</span>
+        </div>
+        <span class="hint">SPACE = 凑热闹</span>
+      </div>
+    </section>
+
+    <aside class="rank-panel">
+      <div class="rank-card">
+        <div class="now-label">当前这瓜 <span class="cat-chip" id="rankCat">—</span></div>
+        <h2 id="rankTitle">—</h2>
+        <div class="rank-meta">
+          <span id="rankAuthor">—</span><span>·</span><span id="rankCampus">—</span><span>·</span><span id="rankTime">—</span>
+        </div>
+        <p class="rank-text" id="rankText"></p>
+        <div class="block-label">从夯到拉 <span class="muted" id="rankCount">0 人已定位</span></div>
+        <div class="tier-rows" id="tierRows"></div>
+        <div class="verdict"><span class="verdict-k">群众判词</span><span id="verdictText">还没人定位，来当第一个。</span></div>
+        <div class="echo"><span class="echo-label">现场回声</span><span id="echoText">等你先开口。</span></div>
+      </div>
+      <div class="side-stats">
+        <div class="stat"><span class="stat-k">本校的瓜</span><b id="statPosts">0</b></div>
+        <div class="stat"><span class="stat-k">总围观</span><b id="statHeat">0</b></div>
+      </div>
+    </aside>
+
+    <section class="feed-block">
+      <div class="feed-head">
+        <div class="feed-title">瓜田 <span class="muted" id="feedCount">0 条</span></div>
+        <div class="tabs" id="tabs"></div>
+        <button class="btn publish" id="publishBtn" type="button">+ 发个瓜</button>
+      </div>
+      <div class="feed-grid" id="feed"></div>
+    </section>
+  </main>
+
+  <div class="ticker"><div class="ticker-track" id="tickerTrack"></div></div>
+</div>
+
+<!-- 校园选择 -->
+<div class="modal" id="campusModal">
+  <div class="modal-box wide">
+    <div class="modal-head">
+      <h3>先选个校园<span class="muted">瓜只在本校流通，随时可以换</span></h3>
+      <button class="x" id="campusClose" type="button">×</button>
+    </div>
+    <div class="campus-grid" id="campusGrid"></div>
+    <div class="modal-foot">
+      <span class="muted">选完就能看到本校的瓜田</span>
+      <span class="muted">PIXEL CAMPUS NETWORK</span>
+    </div>
+  </div>
+</div>
+
+<!-- 发布 -->
+<div class="modal" id="postModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>发个新瓜<span class="muted">有趣的事，值得被整栋楼围观</span></h3>
+      <button class="x" id="postClose" type="button">×</button>
+    </div>
+    <div class="field">
+      <label>发到哪个板块</label>
+      <div class="chips" id="catChips"></div>
+    </div>
+    <div class="field" id="titleField">
+      <label>标题</label>
+      <input type="text" id="postTitle" maxlength="28" placeholder="一句话说清这个瓜">
+    </div>
+    <div class="field">
+      <label>细节（可选）</label>
+      <textarea id="postText" maxlength="120" placeholder="发生了什么？在哪？什么时候？"></textarea>
+    </div>
+    <div class="field">
+      <label>配图（可选，不传就自动配一张像素图）</label>
+      <div class="upload-row">
+        <label class="uploader">选择图片<input type="file" id="fileInput" accept="image/*"></label>
+        <div class="preview" id="uploadPreview"><span>未选择 · 会用像素图代替</span></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="muted" id="postHint">发布到 —</span>
+      <button class="btn" id="submitPost" type="button">发布</button>
+    </div>
+  </div>
+</div>
+
+<!-- 捏人 -->
+<div class="modal" id="avatarModal">
+  <div class="modal-box wide">
+    <div class="modal-head">
+      <h3>捏一个像素的你<span class="muted">会出现在广场人群里，也会跟着你的瓜一起出现</span></h3>
+      <button class="x" id="avatarClose" type="button">×</button>
+    </div>
+    <div class="studio-body">
+      <div class="avatar-stage">
+        <canvas id="avatarCanvas" width="16" height="20"></canvas>
+        <div class="name-field">
+          <label>昵称</label>
+          <input type="text" id="avatarName" maxlength="8" value="我">
+        </div>
+      </div>
+      <div class="avatar-opts">
+        <div class="field"><label>发型</label><div class="opt-row" id="hairOpts"></div></div>
+        <div class="field"><label>发色</label><div class="swatches" id="hairColorOpts"></div></div>
+        <div class="field"><label>衣服</label><div class="swatches" id="shirtOpts"></div></div>
+        <div class="field"><label>配饰</label><div class="opt-row" id="accOpts"></div></div>
+        <div class="field"><label>肤色</label><div class="swatches" id="skinOpts"></div></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="randomAvatar" type="button">随机一下</button>
+      <button class="btn" id="saveAvatar" type="button">就长这样</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ================= 基础数据 ================= */
+  const CAMPS = [
+    {id:'jc', name:'江城大学', short:'江城', color:'#ffd95e', slogan:'三食堂传说的发源地'},
+    {id:'ns', name:'南山理工', short:'南山', color:'#63f5e6', slogan:'凌晨两点还有实验灯'},
+    {id:'lh', name:'临海学院', short:'临海', color:'#ff8ac0', slogan:'风里有海味和晚霞'},
+    {id:'yd', name:'云顶大学', short:'云顶', color:'#8bffb0', slogan:'雾散之后才看得见校门'}
+  ];
+
+  const CATS = [
+    {id:'all',  name:'全部',     color:'#f2eeff'},
+    {id:'food', name:'干饭',     color:'#ffd95e'},
+    {id:'class',name:'课程吐槽', color:'#ff4d9d'},
+    {id:'view', name:'校园景色', color:'#63f5e6'},
+    {id:'dorm', name:'宿舍日常', color:'#8bffb0'},
+    {id:'club', name:'社团活动', color:'#b79bff'}
+  ];
+
+  const TIERS = [
+    {label:'夯', sub:'夯到飞起', color:'#ffd95e'},
+    {label:'顶', sub:'顶中顶',   color:'#ff8ac0'},
+    {label:'行', sub:'有点东西', color:'#63f5e6'},
+    {label:'平', sub:'平平无奇', color:'#9a90d4'},
+    {label:'拉', sub:'拉中拉',   color:'#ff5c5c'}
+  ];
+
+  const VERDICTS = [
+    '夯到飞起，半个校园都在转这条。',
+    '顶中顶，值得蹲一个后续。',
+    '有点东西，路过会停两秒。',
+    '平平无奇，但也不能说没意思。',
+    '拉中拉，建议原地散场。'
+  ];
+
+  const TIER_ECHO = [
+    '你把这一瓜钉在了「夯」，现场有人鼓掌。',
+    '你给了「顶」，前后排都点了点头。',
+    '你给了「行」，有人小声说：中肯。',
+    '你给了「平」，人群没什么反应，但也没人反对。',
+    '你给了「拉」，现场安静了半秒。'
+  ];
+
+  const TIER_BUBBLE = [
+    '群众：夯！这个必须夯！',
+    '群众：顶了顶了，蹲后续。',
+    '群众：行吧，有点意思。',
+    '群众：平平无奇，路过。',
+    '群众：拉，散场散场。'
+  ];
+
+  const SEED_POSTS = [
+    {campus:'jc', cat:'food',  title:'三食堂的糖醋排骨，今天甜到犯规', text:'阿姨像是把整罐糖倒了进去，甜到牙疼但停不下来。', author:'饭点准时到', time:'12分钟前', heat:386, bias:0},
+    {campus:'jc', cat:'class', title:'早八老师用随机数生成器点名', text:'他说这样公平，但每次都精准抽中我。', author:'被点到的第七个', time:'26分钟前', heat:512, bias:1},
+    {campus:'jc', cat:'view',  title:'图书馆后面的银杏道全黄了', text:'下午四点的光最好，建议逃一节课去看。', author:'带相机的', time:'1小时前', heat:288, bias:0},
+    {campus:'jc', cat:'dorm',  title:'宿舍楼下的小猫蹲在快递柜上收件', text:'它连快递都不放过，路过的人都在给它递纸箱。', author:'六楼探子', time:'2小时前', heat:640, bias:0},
+    {campus:'jc', cat:'club',  title:'动漫社在广场摆了个巨大痛包', text:'路过的时候被塞了一颗糖，社恐但很快乐。', author:'糖纸收藏家', time:'3小时前', heat:197, bias:1},
+    {campus:'jc', cat:'food',  title:'二食堂的免费汤，今天只有汤没有料', text:'排队的人端着碗面面相觑，阿姨说这叫清汤寡水。', author:'汤里有故事', time:'4小时前', heat:233, bias:3},
+
+    {campus:'ns', cat:'food',  title:'一食堂新开二十四小时关东煮', text:'凌晨两点还亮着灯，汤底是免费的安慰。', author:'夜宵雷达', time:'18分钟前', heat:720, bias:0},
+    {campus:'ns', cat:'class', title:'实验课把电路接反，全组闻到焦味', text:'老师沉默三秒，说：这也是一种结果。', author:'电阻终结者', time:'45分钟前', heat:468, bias:1},
+    {campus:'ns', cat:'view',  title:'教学楼顶能看见整片晚霞', text:'保安大叔说可以上去，但别带奶茶。', author:'天台常客', time:'1小时前', heat:350, bias:0},
+    {campus:'ns', cat:'dorm',  title:'隔壁宿舍用投影仪在走廊放电影', text:'幕布是床单，观众坐满了整段楼梯。', author:'走廊观众', time:'2小时前', heat:590, bias:0},
+    {campus:'ns', cat:'club',  title:'机器人社的机器狗学会了握手', text:'它握完手还会点头，现场一片惊呼。', author:'螺丝刀', time:'3小时前', heat:410, bias:0},
+    {campus:'ns', cat:'class', title:'选修课签到码放在讲台上，没人敢拍', text:'老师说：拍了就当你没来。', author:'没来的人', time:'5小时前', heat:168, bias:3},
+
+    {campus:'lh', cat:'food',  title:'海风食堂的蛤蜊汤鲜得像刚捞的', text:'喝到一半才发现窗口写着：今日限定。', author:'海风常驻', time:'22分钟前', heat:480, bias:0},
+    {campus:'lh', cat:'view',  title:'操场看台的日落配一轮粉紫色', text:'整片天像被人调过色，手机根本拍不出来。', author:'看台第一排', time:'40分钟前', heat:620, bias:0},
+    {campus:'lh', cat:'class', title:'老师用电影当课件，连放三周', text:'这周终于讲到了片尾字幕。', author:'影迷旁听生', time:'1小时前', heat:302, bias:2},
+    {campus:'lh', cat:'dorm',  title:'停水通知贴出后，整层楼都在排队接水', text:'走廊里全是水桶，像一场静悄悄的迁徙。', author:'三楼提水工', time:'2小时前', heat:388, bias:1},
+    {campus:'lh', cat:'club',  title:'合唱团在操场随机开唱', text:'没有预告，围了半圈人，最后大家一起唱。', author:'和声路人', time:'3小时前', heat:260, bias:0},
+    {campus:'lh', cat:'food',  title:'校门口新开的炸串，排队比上课还久', text:'等了二十分钟，吃的时候只剩三分钟。', author:'卡点选手', time:'6小时前', heat:175, bias:3},
+
+    {campus:'yd', cat:'food',  title:'山顶食堂自产蔬菜，窗口写着今日现摘', text:'番茄真的有番茄味，这一口有点感动。', author:'山顶种菜人', time:'15分钟前', heat:540, bias:0},
+    {campus:'yd', cat:'class', title:'高数老师上课带了一只鹦鹉', text:'它只在讲到极限的时候叫了一声。', author:'极限存在', time:'33分钟前', heat:690, bias:0},
+    {campus:'yd', cat:'view',  title:'雾散之后的校园像开了滤镜', text:'整条路从白色里浮出来，像加载完成的场景。', author:'等雾的人', time:'1小时前', heat:610, bias:0},
+    {campus:'yd', cat:'dorm',  title:'宿舍阳台能看到流星雨', text:'整栋楼同时发出惊叹，宿管也跟着抬头。', author:'阳台观星', time:'2小时前', heat:730, bias:0},
+    {campus:'yd', cat:'club',  title:'天文社搬了三台望远镜到操场', text:'排队看土星，队伍比食堂还整齐。', author:'土星环', time:'3小时前', heat:355, bias:1},
+    {campus:'yd', cat:'dorm',  title:'熄灯后楼道里有人在跳绳', text:'数到一百五十下，突然安静了。', author:'隔墙听众', time:'5小时前', heat:210, bias:3}
+  ];
+
+  const CHATTER = [
+    '图书馆占座已经卷到早上六点','教学楼的电梯又坏了一部','操场有人在练长笛',
+    '快递柜前遇到同款睡衣','今晚的风适合坐看台','食堂阿姨今天手没抖',
+    '有人在教学楼捡到一张校园卡','周末的操场比平时还热闹'
+  ];
+
+  const AV = {
+    hairs:[{id:'short',name:'短发'},{id:'bob',name:'齐耳'},{id:'long',name:'长发'},{id:'spiky',name:'刺猬'}],
+    hairColors:[{v:'#241a3d',n:'黑'},{v:'#ff4d9d',n:'粉'},{v:'#63f5e6',n:'蓝'},{v:'#ffd95e',n:'黄'},{v:'#8bffb0',n:'绿'}],
+    shirts:[{v:'#ff4d9d',n:'粉'},{v:'#63f5e6',n:'蓝'},{v:'#ffd95e',n:'黄'},{v:'#8bffb0',n:'绿'},{v:'#b79bff',n:'紫'},{v:'#f2eeff',n:'白'}],
+    skins:[{v:'#ffd9b8',n:'浅'},{v:'#e8b48c',n:'中'},{v:'#a8765a',n:'深'}],
+    accs:[{id:'none',name:'无'},{id:'glasses',name:'眼镜'},{id:'headphones',name:'耳机'},{id:'cap',name:'帽子'}]
+  };
+
+  /* ================= 元素 ================= */
+  const $ = (s) => document.querySelector(s);
+  const els = {
+    campusChip:$('#campusChip'), campusDot:$('#campusDot'), campusName:$('#campusName'),
+    userChip:$('#userChip'), miniAvatar:$('#miniAvatar'), userName:$('#userName'), soundBtn:$('#soundBtn'),
+    scene:$('#scene'), crowdNum:$('#crowdNum'), sceneCat:$('#sceneCat'), bubble:$('#bubble'),
+    flash:$('#flash'), joinBtn:$('#joinBtn'), nowTitle:$('#nowTitle'),
+    rankCat:$('#rankCat'), rankTitle:$('#rankTitle'), rankAuthor:$('#rankAuthor'),
+    rankCampus:$('#rankCampus'), rankTime:$('#rankTime'), rankText:$('#rankText'), rankCount:$('#rankCount'),
+    tierRows:$('#tierRows'), verdictText:$('#verdictText'), echoText:$('#echoText'),
+    statPosts:$('#statPosts'), statHeat:$('#statHeat'),
+    tabs:$('#tabs'), feedCount:$('#feedCount'), feed:$('#feed'), publishBtn:$('#publishBtn'),
+    tickerTrack:$('#tickerTrack'),
+    campusModal:$('#campusModal'), campusGrid:$('#campusGrid'), campusClose:$('#campusClose'),
+    postModal:$('#postModal'), postClose:$('#postClose'), catChips:$('#catChips'),
+    titleField:$('#titleField'), postTitle:$('#postTitle'), postText:$('#postText'),
+    fileInput:$('#fileInput'), uploadPreview:$('#uploadPreview'), postHint:$('#postHint'), submitPost:$('#submitPost'),
+    avatarModal:$('#avatarModal'), avatarClose:$('#avatarClose'), avatarCanvas:$('#avatarCanvas'),
+    avatarName:$('#avatarName'), hairOpts:$('#hairOpts'), hairColorOpts:$('#hairColorOpts'),
+    shirtOpts:$('#shirtOpts'), accOpts:$('#accOpts'), skinOpts:$('#skinOpts'),
+    randomAvatar:$('#randomAvatar'), saveAvatar:$('#saveAvatar'), toast:$('#toast')
+  };
+
+  const state = {
+    campus:null, cat:'all', selectedId:null, sound:true,
+    posts:[], counts:{},
+    avatar:{hair:'bob', hairColor:'#241a3d', shirt:'#ff4d9d', skin:'#ffd9b8', acc:'glasses', name:'我'}
+  };
+  let avatarDraft = null;
+  let draftCat = 'food';
+  let pendingImage = null;
+
+  /* ================= 后端接入 ================= */
+  const CLIENT = (function(){
+    let id = null;
+    try{ id = localStorage.getItem('melonClientV1'); }catch(e){}
+    if(!id){
+      id = 'c' + Math.random().toString(36).slice(2, 10);
+      try{ localStorage.setItem('melonClientV1', id); }catch(e){}
+    }
+    return id;
+  })();
+
+  const ONLINE = { value:false };
+  let lastSignature = '';
+
+  async function api(path, body){
+    const opt = body
+      ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}
+      : {method:'GET'};
+    const res = await fetch(path, opt);
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    return data;
+  }
+
+  function normalizePost(d){
+    return {
+      id:d.id, campus:d.campus, cat:d.cat, title:d.title, text:d.text,
+      author:d.author, time:d.time, heat:d.heat,
+      tiers:(d.tiers || [0,0,0,0,0]).slice(0, 5),
+      mine:(d.mine === undefined ? null : d.mine),
+      img:d.img || null,
+      art:{kind:d.cat, seed:d.artSeed || 0}
+    };
+  }
+
+  function applyRemote(list){
+    const old = {};
+    state.posts.forEach(p=>{ old[p.id] = p; });
+    state.posts = list.map(d=>{
+      const p = normalizePost(d);
+      const prev = old[p.id];
+      if(prev && prev._img) p._img = prev._img;
+      return p;
+    });
+    ensureSelection();
+  }
+
+  const signatureOf = (list) => list
+    .map(p=>p.id + ':' + p.heat + ':' + p.tiers.join(',') + ':' + p.mine)
+    .join('|');
+
+  async function syncCampus(){
+    if(!state.campus) return false;
+    try{
+      const d = await api('/api/posts?campus=' + encodeURIComponent(state.campus) + '&client=' + CLIENT);
+      applyRemote(d.posts || []);
+      ONLINE.value = true;
+      lastSignature = signatureOf(state.posts);
+      loadCounts();
+      return true;
+    }catch(e){
+      if(ONLINE.value) toast('后端连接断开，暂时用本地数据');
+      ONLINE.value = false;
+      return false;
+    }
+  }
+
+  async function loadCounts(){
+    try{
+      const d = await api('/api/counts');
+      state.counts = d.counts || {};
+    }catch(e){
+      state.counts = {};
+    }
+    renderCampusGrid();
+  }
+
+  function applyPost(d, light){
+    const p = state.posts.find(x=>x.id === d.id);
+    if(!p) return;
+    const np = normalizePost(d);
+    p.tiers = np.tiers;
+    p.heat = np.heat;
+    p.mine = np.mine;
+    p.time = np.time;
+    if(light){
+      paintCrowd(false);
+      renderSideStats();
+      updateCardHeat(p.id);
+    }else{
+      renderFeed();
+      renderRank();
+      renderSceneMeta();
+      renderSideStats();
+      renderTicker();
+    }
+  }
+
+  /* ================= 工具 ================= */
+  const rand = (a,b) => a + Math.random()*(b-a);
+  const pick = (arr) => arr[Math.floor(Math.random()*arr.length)];
+  const fmt = (n) => Number(n).toLocaleString('en-US');
+  const clamp = (v,a,b) => Math.min(b, Math.max(a,v));
+  const campOf = (id) => CAMPS.find(c=>c.id===id) || CAMPS[0];
+  const catOf = (id) => CATS.find(c=>c.id===id) || CATS[0];
+  const reseed = (arr) => arr.map(v=>v).sort(()=>Math.random()-0.5);
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  /* ================= 音效 ================= */
+  let actx = null;
+  function beep(freq, dur, type, vol){
+    dur = dur || 0.06; type = type || 'square'; vol = vol || 0.032;
+    if(!state.sound) return;
+    try{
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    }catch(e){}
+  }
+
+  /* ================= 初始化数据 ================= */
+  function seedAll(){
+    state.posts = SEED_POSTS.map((raw, i)=>{
+      const total = clamp(Math.round(raw.heat * 0.6), 40, 260);
+      return {
+        id:'s' + i,
+        campus:raw.campus,
+        cat:raw.cat,
+        title:raw.title,
+        text:raw.text,
+        author:raw.author,
+        time:raw.time,
+        heat:raw.heat,
+        tiers:makeTiers(raw.bias, total),
+        mine:null,
+        img:null,
+        art:{kind:raw.cat, seed:i*131 + 7}
+      };
+    });
+  }
+
+  function makeTiers(bias, total){
+    const w = TIERS.map((_, k)=>Math.exp(-Math.pow(k-bias,2)/1.4));
+    const sum = w.reduce((a,b)=>a+b,0);
+    return w.map(x=>Math.round(x/sum*total));
+  }
+
+  const visiblePosts = () => state.posts.filter(p =>
+    p.campus === state.campus && (state.cat === 'all' || p.cat === state.cat)
+  );
+  const selectedPost = () => state.posts.find(p=>p.id === state.selectedId) || null;
+
+  function ensureSelection(){
+    const list = visiblePosts();
+    if(!list.some(p=>p.id === state.selectedId)){
+      state.selectedId = list.length ? list[0].id : null;
+    }
+  }
+
+  /* ================= 存档 ================= */
+  function saveProfile(){
+    try{
+      localStorage.setItem('melonCampusV1', JSON.stringify({campus:state.campus, avatar:state.avatar}));
+    }catch(e){}
+  }
+  function loadProfile(){
+    try{
+      const raw = localStorage.getItem('melonCampusV1');
+      if(!raw) return;
+      const d = JSON.parse(raw);
+      if(d.campus && CAMPS.some(c=>c.id === d.campus)) state.campus = d.campus;
+      if(d.avatar) state.avatar = Object.assign({}, state.avatar, d.avatar);
+    }catch(e){}
+  }
+
+  /* ================= 顶栏 ================= */
+  function drawMiniAvatar(){
+    const g = els.miniAvatar.getContext('2d');
+    g.clearRect(0, 0, 16, 20);
+    drawAvatar(g, 0, 0, 1, state.avatar);
+  }
+
+  function renderCampusChip(){
+    if(state.campus){
+      const c = campOf(state.campus);
+      els.campusName.textContent = c.name;
+      els.campusDot.style.setProperty('background', c.color);
+      els.campusDot.style.setProperty('color', c.color);
+    }else{
+      els.campusName.textContent = '选择校园';
+      els.campusDot.style.setProperty('background', '#4a4278');
+      els.campusDot.style.setProperty('color', '#4a4278');
+    }
+    els.userName.textContent = state.avatar.name || '我';
+  }
+
+  /* ================= 板块与内容流 ================= */
+  function renderTabs(){
+    els.tabs.innerHTML = '';
+    CATS.forEach(c=>{
+      const count = state.campus
+        ? state.posts.filter(p=>p.campus === state.campus && (c.id === 'all' || p.cat === c.id)).length
+        : 0;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tab' + (state.cat === c.id ? ' active' : '');
+      b.style.setProperty('--tab', c.color);
+      b.innerHTML = esc(c.name) + '<span class="count">' + count + '</span>';
+      b.addEventListener('click', ()=>setCategory(c.id));
+      els.tabs.appendChild(b);
+    });
+  }
+
+  function setCategory(id){
+    if(state.cat === id) return;
+    state.cat = id;
+    ensureSelection();
+    renderTabs();
+    renderFeed();
+    renderRank();
+    renderSceneMeta();
+    beep(420, 0.04);
+  }
+
+  function renderFeed(){
+    const list = visiblePosts();
+    els.feed.innerHTML = '';
+    els.feedCount.textContent = list.length + ' 条';
+    if(!list.length){
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = state.campus
+        ? '这个板块还空着，发一条让瓜田热闹起来。'
+        : '先选一个校园，才看得到瓜。';
+      els.feed.appendChild(empty);
+      return;
+    }
+    list.forEach(p=>{
+      const cat = catOf(p.cat);
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'post-card' + (p.id === state.selectedId ? ' selected' : '');
+      card.dataset.id = p.id;
+
+      const thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      if(p.img){
+        const img = document.createElement('img');
+        img.src = p.img;
+        img.alt = '';
+        thumb.appendChild(img);
+      }else{
+        const cv = document.createElement('canvas');
+        cv.width = 24; cv.height = 18;
+        drawArt(cv.getContext('2d'), p.art.kind, p.art.seed, 0, 0, 1);
+        thumb.appendChild(cv);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'card-body';
+      const top = document.createElement('div');
+      top.className = 'card-top';
+      const chip = document.createElement('span');
+      chip.className = 'cat-chip';
+      chip.style.setProperty('--c', cat.color);
+      chip.textContent = cat.name;
+      const heat = document.createElement('span');
+      heat.className = 'heat';
+      heat.textContent = fmt(p.heat) + ' 围观';
+      top.appendChild(chip);
+      top.appendChild(heat);
+
+      const title = document.createElement('div');
+      title.className = 'post-title';
+      title.textContent = p.title;
+
+      const foot = document.createElement('div');
+      foot.className = 'card-foot';
+      const author = document.createElement('span');
+      author.className = 'author';
+      author.textContent = p.author;
+      foot.appendChild(author);
+      if(p.mine !== null){
+        const mark = document.createElement('span');
+        mark.className = 'my-mark';
+        mark.textContent = '你：' + TIERS[p.mine].label;
+        foot.appendChild(mark);
+      }
+
+      body.appendChild(top);
+      body.appendChild(title);
+      body.appendChild(foot);
+      card.appendChild(thumb);
+      card.appendChild(body);
+      card.addEventListener('click', ()=>selectPost(p.id));
+      els.feed.appendChild(card);
+    });
+  }
+
+  function selectPost(id){
+    state.selectedId = id;
+    Array.prototype.forEach.call(els.feed.children, (el)=>{
+      el.classList.toggle('selected', el.dataset && el.dataset.id === id);
+    });
+    renderRank();
+    renderSceneMeta();
+    beep(520, 0.045);
+    const p = selectedPost();
+    if(p){
+      setEcho(p.mine !== null ? '你已经把它定在「' + TIERS[p.mine].label + '」。' : '这条瓜，你怎么定？');
+    }
+  }
+
+  /* ================= 定位面板 ================= */
+  function renderRank(){
+    const p = selectedPost();
+    if(!p){
+      els.rankTitle.textContent = '这个板块还没有瓜';
+      els.rankCat.textContent = '空';
+      els.rankCat.style.setProperty('--c', '#6e66a8');
+      els.rankAuthor.textContent = '—';
+      els.rankCampus.textContent = '—';
+      els.rankTime.textContent = '—';
+      els.rankText.textContent = '';
+      els.verdictText.textContent = '发一条，让瓜田热闹起来。';
+      renderTierRows(null);
+      return;
+    }
+    const camp = campOf(p.campus);
+    const cat = catOf(p.cat);
+    els.rankCat.textContent = cat.name;
+    els.rankCat.style.setProperty('--c', cat.color);
+    els.rankTitle.textContent = p.title;
+    els.rankAuthor.textContent = p.author;
+    els.rankCampus.textContent = camp.name;
+    els.rankTime.textContent = p.time;
+    els.rankText.textContent = p.text || '';
+    renderTierRows(p);
+    els.verdictText.textContent = verdictOf(p);
+  }
+
+  function renderTierRows(p){
+    els.tierRows.innerHTML = '';
+    const total = p ? p.tiers.reduce((a,b)=>a+b,0) : 0;
+    els.rankCount.textContent = total + ' 人已定位';
+
+    TIERS.forEach((t, i)=>{
+      const count = p ? p.tiers[i] : 0;
+      const pct = total ? Math.round(count/total*100) : 0;
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'tier-row' + (p && p.mine === i ? ' mine' : '');
+      row.style.setProperty('--tier', t.color);
+      row.innerHTML =
+        '<span class="tier-name">' + t.label + '<i>' + t.sub + '</i></span>' +
+        '<span class="tier-track"><span class="tier-fill"></span></span>' +
+        '<span class="tier-pct">' + pct + '%</span>';
+      const fill = row.querySelector('.tier-fill');
+      if(p){
+        row.addEventListener('click', ()=>vote(i));
+        requestAnimationFrame(()=>{ fill.style.width = (pct > 0 ? Math.max(3, pct) : 0) + '%'; });
+      }else{
+        row.style.cursor = 'default';
+      }
+      els.tierRows.appendChild(row);
+    });
+  }
+
+  function verdictOf(p){
+    const total = p.tiers.reduce((a,b)=>a+b,0);
+    if(!total) return '还没人定位，来当第一个。';
+    let best = 0;
+    p.tiers.forEach((v,i)=>{ if(v > p.tiers[best]) best = i; });
+    return VERDICTS[best];
+  }
+
+  /* ================= 现场元信息 ================= */
+  function renderSceneMeta(){
+    const p = selectedPost();
+    els.nowTitle.textContent = p ? p.title : '—';
+    if(p){
+      els.sceneCat.textContent = catOf(p.cat).name;
+    }else{
+      els.sceneCat.textContent = 'LIVE';
+    }
+    paintCrowd(false);
+  }
+
+  function paintCrowd(pop){
+    const p = selectedPost();
+    els.crowdNum.textContent = fmt(p ? p.heat : 0);
+    if(pop){
+      els.crowdNum.classList.remove('pop');
+      void els.crowdNum.offsetWidth;
+      els.crowdNum.classList.add('pop');
+    }
+  }
+
+  function renderSideStats(){
+    const list = state.campus ? state.posts.filter(p=>p.campus === state.campus) : [];
+    els.statPosts.textContent = list.length;
+    els.statHeat.textContent = fmt(list.reduce((a,p)=>a+p.heat,0));
+  }
+
+  /* ================= 交互 ================= */
+  let echoTimer = null;
+  function setEcho(text){
+    clearInterval(echoTimer);
+    els.echoText.textContent = '';
+    let i = 0;
+    echoTimer = setInterval(()=>{
+      i++;
+      els.echoText.textContent = text.slice(0, i);
+      if(i >= text.length) clearInterval(echoTimer);
+    }, 34);
+  }
+
+  let bubbleTimer = null;
+  function showBubble(text){
+    els.bubble.textContent = text;
+    els.bubble.classList.add('show');
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(()=>els.bubble.classList.remove('show'), 3000);
+  }
+
+  function flashScreen(){
+    els.flash.classList.remove('go');
+    void els.flash.offsetWidth;
+    els.flash.classList.add('go');
+  }
+
+  function toast(text){
+    els.toast.textContent = text;
+    els.toast.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=>els.toast.classList.remove('show'), 2200);
+  }
+
+  function vote(tier){
+    const p = selectedPost();
+    if(!p) return;
+    if(p.mine === tier){
+      beep(320, 0.05);
+      return;
+    }
+    if(p.mine !== null) p.tiers[p.mine]--;
+    p.tiers[tier]++;
+    p.mine = tier;
+    p.heat += 4 + Math.floor(Math.random()*9);
+
+    renderRank();
+    renderSceneMeta();
+    renderFeed();
+    renderSideStats();
+    renderTicker();
+
+    setEcho(TIER_ECHO[tier]);
+    showBubble(TIER_BUBBLE[tier]);
+    flashScreen();
+    burst();
+    beep(190 + tier*55, 0.09);
+    setTimeout(()=>beep(240 + tier*55, 0.06), 90);
+
+    if(ONLINE.value){
+      api('/api/vote', {postId:p.id, tier:tier, clientId:CLIENT})
+        .then(d=>{
+          const dest = state.posts.find(x=>x.id === p.id);
+          applyPost(d.post, true);
+          if(dest && dest.id === state.selectedId){
+            renderTierRows(dest);
+            els.verdictText.textContent = verdictOf(dest);
+          }
+        })
+        .catch(()=>{
+          ONLINE.value = false;
+          toast('后端未连接，这次定位只存在本地');
+        });
+    }
+  }
+
+  async function join(){
+    const p = selectedPost();
+    if(!p) return;
+    const n = 1 + (Math.random() < 0.25 ? 1 : 0);
+    p.heat += n;
+    paintCrowd(true);
+    renderSideStats();
+    updateCardHeat(p.id);
+    beep(560 + Math.random()*160, 0.05);
+    spawnText(180 + rand(-30, 40), 74, '+' + n, '#ffd95e');
+    spawnFlash(rand(40, 210), rand(70, 92));
+    if(Math.random() < 0.22){
+      showBubble(pick(CHATTER));
+    }
+    if(ONLINE.value){
+      try{
+        const d = await api('/api/join', {postId:p.id, n:n, clientId:CLIENT});
+        applyPost(d.post, true);
+      }catch(e){
+        ONLINE.value = false;
+      }
+    }
+  }
+
+  function updateCardHeat(id){
+    const p = state.posts.find(x=>x.id === id);
+    const card = els.feed.querySelector('.post-card[data-id="' + id + '"]');
+    if(!p || !card) return;
+    const heat = card.querySelector('.heat');
+    if(heat) heat.textContent = fmt(p.heat) + ' 围观';
+  }
+
+  /* ================= 校园 ================= */
+  function openCampusModal(){
+    renderCampusGrid();
+    els.campusClose.style.display = state.campus ? '' : 'none';
+    els.campusModal.classList.add('show');
+  }
+  function renderCampusGrid(){
+    els.campusGrid.innerHTML = '';
+    CAMPS.forEach(c=>{
+      const count = state.counts[c.id] !== undefined
+        ? state.counts[c.id]
+        : state.posts.filter(p=>p.campus === c.id).length;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'campus-card' + (state.campus === c.id ? ' current' : '');
+      b.style.setProperty('--cc', c.color);
+      b.innerHTML =
+        '<span class="campus-mark"></span>' +
+        '<span><b>' + esc(c.name) + '</b><small>' + esc(c.slogan) + ' · ' + count + ' 个瓜</small></span>';
+      b.addEventListener('click', ()=>chooseCampus(c.id));
+      els.campusGrid.appendChild(b);
+    });
+  }
+  async function chooseCampus(id){
+    state.campus = id;
+    state.selectedId = null;
+    saveProfile();
+    els.campusModal.classList.remove('show');
+    state.posts = [];
+    renderAll();
+    await syncCampus();
+    renderAll();
+    const c = campOf(id);
+    toast('已切到 ' + c.name + ' · ' + state.posts.length + ' 个瓜');
+    beep(640, 0.05);
+    setTimeout(()=>beep(860, 0.06), 80);
+  }
+
+  /* ================= 发布 ================= */
+  function openPostModal(){
+    if(!state.campus){ openCampusModal(); return; }
+    draftCat = state.cat === 'all' ? 'food' : state.cat;
+    pendingImage = null;
+    els.postTitle.value = '';
+    els.postText.value = '';
+    els.titleField.classList.remove('error');
+    els.fileInput.value = '';
+    els.uploadPreview.innerHTML = '<span>未选择 · 会用像素图代替</span>';
+    renderCatChips();
+    updatePostHint();
+    els.postModal.classList.add('show');
+    setTimeout(()=>els.postTitle.focus(), 60);
+  }
+  function closePostModal(){
+    els.postModal.classList.remove('show');
+    pendingImage = null;
+  }
+  function renderCatChips(){
+    els.catChips.innerHTML = '';
+    CATS.filter(c=>c.id !== 'all').forEach(c=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'choice' + (draftCat === c.id ? ' active' : '');
+      b.style.setProperty('--c', c.color);
+      b.textContent = c.name;
+      b.addEventListener('click', ()=>{
+        draftCat = c.id;
+        renderCatChips();
+        updatePostHint();
+        beep(480, 0.04);
+      });
+      els.catChips.appendChild(b);
+    });
+  }
+  function updatePostHint(){
+    const camp = state.campus ? campOf(state.campus) : null;
+    els.postHint.textContent = camp ? '发布到 ' + camp.name + ' · ' + catOf(draftCat).name : '先选择校园';
+  }
+  function submitPost(){
+    if(!state.campus){ openCampusModal(); return; }
+    const title = els.postTitle.value.trim();
+    if(!title){
+      els.titleField.classList.add('error');
+      els.postTitle.focus();
+      beep(180, 0.1, 'sawtooth');
+      return;
+    }
+    els.titleField.classList.remove('error');
+    const payload = {
+      campus:state.campus,
+      cat:draftCat,
+      title:title,
+      text:els.postText.value.trim(),
+      author:state.avatar.name || '我',
+      img:pendingImage,
+      clientId:CLIENT
+    };
+    closePostModal();
+    publishPost(payload);
+  }
+
+  async function publishPost(payload){
+    let post = null;
+    if(ONLINE.value){
+      try{
+        const d = await api('/api/posts', payload);
+        post = normalizePost(d.post);
+      }catch(e){}
+    }
+    if(!post){
+      // 后端不可用时退回本地发布，保证仍能看效果
+      post = {
+        id:'u' + Date.now(),
+        campus:payload.campus,
+        cat:payload.cat,
+        title:payload.title,
+        text:payload.text,
+        author:payload.author,
+        time:'刚刚',
+        heat:1,
+        tiers:[0,0,0,0,0],
+        mine:null,
+        img:payload.img,
+        art:{kind:payload.cat, seed:Math.floor(Math.random()*99999)}
+      };
+      toast('后端未连接，这条只存在本地');
+    }else{
+      loadCounts();
+    }
+    state.posts.unshift(post);
+    state.cat = 'all';
+    state.selectedId = post.id;
+    lastSignature = signatureOf(state.posts);
+    renderAll();
+    flashScreen();
+    burst();
+    beep(700, 0.06);
+    setTimeout(()=>beep(940, 0.07), 90);
+    toast('已发布到 ' + campOf(post.campus).name + ' · ' + catOf(post.cat).name);
+  }
+
+  /* ================= 捏人 ================= */
+  function buildAvatarControls(){
+    AV.hairs.forEach(h=>{
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'choice'; b.textContent = h.name;
+      b.addEventListener('click', ()=>{ avatarDraft.hair = h.id; syncAvatarUI(); drawPreview(); beep(500, 0.035); });
+      els.hairOpts.appendChild(b);
+    });
+    AV.accs.forEach(a=>{
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'choice'; b.textContent = a.name;
+      b.addEventListener('click', ()=>{ avatarDraft.acc = a.id; syncAvatarUI(); drawPreview(); beep(500, 0.035); });
+      els.accOpts.appendChild(b);
+    });
+
+    const swatchGroup = (items, key, container)=>{
+      items.forEach(it=>{
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'swatch';
+        b.style.background = it.v;
+        b.title = it.n;
+        b.setAttribute('aria-label', it.n);
+        b.addEventListener('click', ()=>{
+          avatarDraft[key] = it.v;
+          syncAvatarUI();
+          drawPreview();
+          beep(560, 0.035);
+        });
+        container.appendChild(b);
+      });
+    };
+    swatchGroup(AV.hairColors, 'hairColor', els.hairColorOpts);
+    swatchGroup(AV.shirts, 'shirt', els.shirtOpts);
+    swatchGroup(AV.skins, 'skin', els.skinOpts);
+  }
+
+  function syncAvatarUI(){
+    const a = avatarDraft || state.avatar;
+    Array.prototype.forEach.call(els.hairOpts.children, (b,i)=>{
+      b.classList.toggle('active', AV.hairs[i].id === a.hair);
+    });
+    Array.prototype.forEach.call(els.accOpts.children, (b,i)=>{
+      b.classList.toggle('active', AV.accs[i].id === a.acc);
+    });
+    Array.prototype.forEach.call(els.hairColorOpts.children, (b,i)=>{
+      b.classList.toggle('active', AV.hairColors[i].v === a.hairColor);
+    });
+    Array.prototype.forEach.call(els.shirtOpts.children, (b,i)=>{
+      b.classList.toggle('active', AV.shirts[i].v === a.shirt);
+    });
+    Array.prototype.forEach.call(els.skinOpts.children, (b,i)=>{
+      b.classList.toggle('active', AV.skins[i].v === a.skin);
+    });
+  }
+
+  function drawPreview(){
+    const a = avatarDraft || state.avatar;
+    const g = els.avatarCanvas.getContext('2d');
+    g.clearRect(0, 0, 16, 20);
+    drawAvatar(g, 0, 0, 1, a);
+  }
+
+  function openAvatarModal(){
+    avatarDraft = Object.assign({}, state.avatar);
+    els.avatarName.value = avatarDraft.name || '我';
+    syncAvatarUI();
+    drawPreview();
+    els.avatarModal.classList.add('show');
+  }
+  function closeAvatarModal(){
+    els.avatarModal.classList.remove('show');
+    avatarDraft = null;
+  }
+  function randomAvatar(){
+    avatarDraft.hair = pick(AV.hairs).id;
+    avatarDraft.hairColor = pick(AV.hairColors).v;
+    avatarDraft.shirt = pick(AV.shirts).v;
+    avatarDraft.skin = pick(AV.skins).v;
+    avatarDraft.acc = pick(AV.accs).id;
+    syncAvatarUI();
+    drawPreview();
+    beep(620, 0.05);
+    setTimeout(()=>beep(760, 0.05), 70);
+  }
+  function saveAvatar(){
+    const name = els.avatarName.value.trim() || '我';
+    state.avatar = Object.assign({}, avatarDraft, {name:name});
+    saveProfile();
+    drawMiniAvatar();
+    renderCampusChip();
+    closeAvatarModal();
+    toast('新形象已上线，去广场看看');
+    beep(780, 0.05);
+    setTimeout(()=>beep(960, 0.06), 80);
+  }
+
+  /* ================= 像素小人 ================= */
+  function drawAvatar(g, ox, oy, s, a){
+    const P = (x,y,w,h,c)=>{ g.fillStyle = c; g.fillRect(ox+x*s, oy+y*s, w*s, h*s); };
+    const skin = a.skin, hair = a.hairColor, shirt = a.shirt;
+    const dark = '#161027', pants = '#2a2350', shoe = '#0d0a1c';
+
+    P(5,15,3,4,pants); P(9,15,3,4,pants);
+    P(4,18,4,2,shoe);  P(9,18,4,2,shoe);
+    P(4,8,8,7,shirt);
+    P(3,9,1,4,shirt);  P(12,9,1,4,shirt);
+    P(3,13,1,1,skin);  P(12,13,1,1,skin);
+    P(4,2,8,6,skin);
+    P(3,4,1,2,skin);   P(12,4,1,2,skin);
+    P(6,4,1,1,dark);   P(9,4,1,1,dark);
+    P(7,6,2,1,'#d07a7a');
+
+    if(a.hair === 'short'){
+      P(4,1,8,2,hair); P(4,2,1,2,hair); P(11,2,1,2,hair);
+    }else if(a.hair === 'bob'){
+      P(3,0,10,3,hair); P(3,2,1,5,hair); P(12,2,1,5,hair);
+    }else if(a.hair === 'long'){
+      P(3,0,10,3,hair); P(2,2,2,8,hair); P(12,2,2,8,hair);
+    }else{
+      P(4,1,8,2,hair);
+      P(4,0,1,1,hair); P(6,0,1,1,hair); P(8,0,1,1,hair); P(10,0,1,1,hair);
+    }
+
+    if(a.acc === 'glasses'){
+      P(5,3,5,1,'#f2eeff'); P(5,5,5,1,'#f2eeff');
+      P(5,4,1,1,'#f2eeff'); P(9,4,1,1,'#f2eeff');
+    }else if(a.acc === 'headphones'){
+      P(2,3,2,3,'#ffd95e'); P(12,3,2,3,'#ffd95e'); P(3,0,10,1,'#ffd95e');
+    }else if(a.acc === 'cap'){
+      P(3,0,10,2,'#63f5e6'); P(3,2,11,1,'#3fc9bd');
+    }
+  }
+
+  /* ================= 像素插画 ================= */
+  function mulberry32(a){
+    return function(){
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  function drawArt(g, kind, seed, ox, oy, s){
+    const R = mulberry32(seed);
+    const P = (x,y,w,h,c)=>{ g.fillStyle = c; g.fillRect(ox+x*s, oy+y*s, w*s, h*s); };
+
+    if(kind === 'food'){
+      P(0,0,24,18,'#2a1226');
+      P(0,12,24,6,'#3a2140');
+      P(0,12,24,1,'#56305c');
+      P(4,9,16,1,'#ffffff');
+      P(5,9,14,5,'#f5f2ff');
+      P(6,14,12,1,'#c9c2e6');
+      P(6,10,12,3,'#ff8a5c');
+      P(7,11,10,1,'#ffd95e');
+      P(8,12,2,1,'#8bffb0');
+      P(12,12,1,1,'#8bffb0');
+      for(let i=0;i<6;i++){
+        P(17+i,5-i,1,1,'#e8c9a0');
+        P(18+i,5-i,1,1,'#e8c9a0');
+      }
+      P(9,4,1,2,'#ffd0e6'); P(13,3,1,3,'#ffd0e6'); P(16,5,1,2,'#ffd0e6');
+      P(1,10,3,2,'#ffd95e'); P(1,10,3,1,'#fff0a8');
+    }
+
+    else if(kind === 'class'){
+      P(0,0,24,18,'#0d2a24');
+      P(1,1,22,16,'#123a32');
+      P(3,4,8,1,'#cfe9dc'); P(3,7,5,1,'#cfe9dc'); P(11,7,3,1,'#cfe9dc');
+      P(4,10,4,1,'#cfe9dc'); P(10,10,6,1,'#cfe9dc');
+      P(15,4,4,1,'#cfe9dc'); P(15,5,1,2,'#cfe9dc'); P(18,5,1,2,'#cfe9dc'); P(15,7,4,1,'#cfe9dc');
+      P(19,2,2,1,'#ffd95e');
+      P(1,15,22,1,'#3a2140');
+      P(0,15,5,3,'#2a1a44'); P(18,15,6,3,'#2a1a44');
+      P(6 + Math.floor(R()*4), 12, 2, 1, '#9fd3c2');
+    }
+
+    else if(kind === 'view'){
+      const sky = ['#3a1a5c','#7a2a6a','#c9457a','#ff8a5c'];
+      for(let i=0;i<4;i++) P(0, i*3, 24, 3, sky[i]);
+      P(0,11,24,1,'#ffb45c');
+      P(14,5,5,4,'#ffd95e');
+      P(0,12,24,6,'#1a2a4a');
+      P(3,8,1,5,'#141030'); P(2,6,3,3,'#1a3a34'); P(1,7,5,2,'#1a3a34');
+      P(19,9,1,4,'#141030'); P(18,7,3,3,'#1a3a34');
+      P(8,13,6,1,'#ff8a5c'); P(6,14,3,1,'#ffb45c'); P(14,15,4,1,'#7a2a6a');
+      P(11,13,1,1,'#ffd95e');
+    }
+
+    else if(kind === 'dorm'){
+      P(0,0,24,18,'#0a0820');
+      P(0,0,24,16,'#1a1240');
+      P(3,3,10,8,'#0b0820');
+      P(3,3,10,1,'#241d55'); P(3,10,10,1,'#241d55');
+      P(3,3,1,8,'#241d55'); P(12,3,1,8,'#241d55');
+      P(5,4,1,1,'#ffd95e'); P(8,5,1,1,'#f2eeff'); P(10,7,1,1,'#ffd95e');
+      P(12,5,1,10,'#3a2b70'); P(21,5,1,10,'#3a2b70');
+      P(13,7,8,2,'#ff8ac0'); P(14,7,2,1,'#f5f2ff');
+      P(13,10,8,1,'#2a2350');
+      P(2,11,2,1,'#ffd95e'); P(2,12,1,2,'#3a2b70');
+      P(17,2,4,2,'#63f5e6'); P(18,2,1,1,'#1a1240');
+    }
+
+    else{
+      P(0,0,24,18,'#1a0f2e');
+      P(0,13,24,5,'#2a1236');
+      P(3,2,18,4,'#ff4d9d');
+      P(4,3,3,1,'#1a0b24'); P(8,3,2,1,'#1a0b24'); P(11,3,5,1,'#1a0b24');
+      g.globalAlpha = 0.16;
+      P(1,0,4,14,'#63f5e6'); P(19,0,4,14,'#ffd95e');
+      g.globalAlpha = 1;
+      P(12,8,1,5,'#f5f2ff'); P(11,7,3,1,'#ffd95e');
+      P(6,10,3,3,'#0f0a22'); P(15,9,3,4,'#0f0a22');
+      for(let i=0;i<8;i++){
+        P(Math.floor(R()*24), Math.floor(R()*8), 1, 1, ['#ff4d9d','#63f5e6','#ffd95e'][i%3]);
+      }
+    }
+  }
+
+  /* ================= 场景 ================= */
+  const sctx = els.scene.getContext('2d');
+  const SW = 240, SH = 100;
+
+  const srnd = mulberry32(20261025);
+  const stars = [];
+  for(let i=0;i<70;i++) stars.push({x:Math.floor(srnd()*SW), y:Math.floor(srnd()*26), p:srnd()*6.28});
+
+  const buildings = [];
+  (function(){
+    let x = -8;
+    while(x < SW){
+      const w = 10 + Math.floor(srnd()*16);
+      const h = 18 + Math.floor(srnd()*34);
+      const wins = [];
+      for(let wy=4; wy<h-2; wy+=4){
+        for(let wx=2; wx<w-2; wx+=3){
+          if(srnd() < 0.42){
+            wins.push({x:wx, y:wy, c: srnd() < 0.22 ? '#63f5e6' : '#ffd95e', p:srnd()*6.28});
+          }
+        }
+      }
+      buildings.push({x, w, h, wins});
+      x += w + 1 + (srnd() < 0.3 ? 3 : 0);
+    }
+  })();
+
+  const crowdRows = [];
+  const crowdCols = [
+    ['#4a3a96','#2f5f8f','#5a3690','#3a6a8a','#553a86'],
+    ['#3a2f7e','#2b4a7a','#4a2f80','#2f5a7a','#43306e'],
+    ['#2a2366','#22305e','#3a2a6e','#26365f','#332260']
+  ];
+  const rowY = [98, 92, 87];
+  const rowH = [13, 11, 10];
+  const rowN = [30, 28, 26];
+  for(let r=0;r<3;r++){
+    const arr = [];
+    for(let i=0;i<rowN[r];i++){
+      arr.push({
+        x: Math.floor((i + 0.5) * (SW / rowN[r]) + srnd()*8 - 4),
+        y: rowY[r] + Math.floor(srnd()*2),
+        h: rowH[r] + Math.floor(srnd()*2) - 1,
+        col: crowdCols[r][Math.floor(srnd()*crowdCols[r].length)],
+        p: srnd()*6.28,
+        phone: srnd() < 0.4
+      });
+    }
+    crowdRows.push(arr);
+  }
+
+  let heatShown = 0;
+  let peopleShown = 6;
+  const parts = [];
+
+  function spawnText(x, y, text, color){
+    parts.push({x, y, vx:rand(-3,3), vy:-12, life:1, text, color, type:'text'});
+  }
+  function spawnFlash(x, y){
+    parts.push({x, y, vx:0, vy:0, life:1, color:'#fff', type:'flash'});
+  }
+  function burst(){
+    for(let i=0;i<12;i++){
+      parts.push({
+        x:120+rand(-70,70), y:70+rand(-14,14),
+        vx:rand(-14,14), vy:rand(-40,-15), life:1,
+        color:pick(['#ff4d9d','#63f5e6','#ffd95e','#8bffb0']), type:'px'
+      });
+    }
+  }
+  function tickParts(dt){
+    for(let i=parts.length-1;i>=0;i--){
+      const p = parts[i];
+      p.life -= dt * (p.type === 'flash' ? 5 : 0.85);
+      p.x += p.vx*dt; p.y += p.vy*dt;
+      if(p.type === 'px') p.vy += 70*dt;
+      if(p.life <= 0) parts.splice(i,1);
+    }
+  }
+  function drawParts(){
+    for(let i=0;i<parts.length;i++){
+      const p = parts[i];
+      sctx.globalAlpha = Math.max(0, p.life);
+      if(p.type === 'text'){
+        sctx.fillStyle = p.color;
+        sctx.font = 'bold 7px "Microsoft YaHei", monospace';
+        sctx.textAlign = 'center';
+        sctx.fillText(p.text, p.x, p.y);
+      }else if(p.type === 'flash'){
+        sctx.fillStyle = '#fff';
+        sctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
+        sctx.fillRect(Math.round(p.x)-2, Math.round(p.y), 6, 1);
+      }else{
+        sctx.fillStyle = p.color;
+        sctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
+      }
+    }
+    sctx.globalAlpha = 1;
+    sctx.textAlign = 'left';
+  }
+
+  function imageFor(p){
+    if(!p.img) return null;
+    if(!p._img){
+      p._img = new Image();
+      p._img.src = p.img;
+    }
+    return (p._img.complete && p._img.naturalWidth) ? p._img : null;
+  }
+
+  function drawContain(img, x, y, w, h){
+    const r = Math.min(w/img.naturalWidth, h/img.naturalHeight);
+    const dw = img.naturalWidth*r, dh = img.naturalHeight*r;
+    sctx.fillStyle = '#05030f';
+    sctx.fillRect(x, y, w, h);
+    sctx.imageSmoothingEnabled = true;
+    sctx.drawImage(img, x + (w-dw)/2, y + (h-dh)/2, dw, dh);
+    sctx.imageSmoothingEnabled = false;
+  }
+
+  function drawBoard(t){
+    const p = selectedPost();
+    const cat = p ? catOf(p.cat) : null;
+    const glow = cat ? cat.color : '#63f5e6';
+
+    sctx.globalAlpha = 0.10;
+    sctx.fillStyle = glow;
+    sctx.fillRect(74, 0, 92, 68);
+    sctx.globalAlpha = 1;
+
+    sctx.fillStyle = '#0a0718';
+    sctx.fillRect(80, 2, 80, 62);
+    sctx.fillStyle = glow;
+    sctx.fillRect(80, 2, 80, 1);
+    sctx.fillRect(80, 63, 80, 1);
+    sctx.fillRect(80, 2, 1, 61);
+    sctx.fillRect(159, 2, 1, 61);
+    sctx.fillStyle = '#ff4d9d';
+    sctx.fillRect(80, 2, 3, 1); sctx.fillRect(157, 2, 3, 1);
+    sctx.fillRect(80, 63, 3, 1); sctx.fillRect(157, 63, 3, 1);
+
+    sctx.fillStyle = '#0b0820';
+    sctx.fillRect(84, 6, 72, 54);
+
+    if(p){
+      const img = imageFor(p);
+      if(img){
+        drawContain(img, 84, 6, 72, 54);
+      }else{
+        drawArt(sctx, p.art.kind, p.art.seed, 84, 6, 3);
+      }
+    }else{
+      sctx.fillStyle = '#241d55';
+      sctx.font = 'bold 6px "Silkscreen", monospace';
+      sctx.textAlign = 'center';
+      sctx.fillText('NO MELON', 120, 36);
+      sctx.textAlign = 'left';
+    }
+
+    sctx.fillStyle = '#1d1650';
+    sctx.fillRect(114, 64, 12, 10);
+    sctx.fillStyle = '#2b2170';
+    sctx.fillRect(112, 72, 16, 2);
+
+    const blink = Math.sin(t*4) > 0 ? '#ff4d9d' : '#4a1b34';
+    sctx.fillStyle = blink;
+    sctx.fillRect(82, 3, 1, 1);
+    sctx.fillRect(157, 3, 1, 1);
+
+    sctx.globalAlpha = 0.05;
+    sctx.fillStyle = '#f2eeff';
+    sctx.beginPath();
+    sctx.moveTo(84, 64);
+    sctx.lineTo(156, 64);
+    sctx.lineTo(190, 90);
+    sctx.lineTo(50, 90);
+    sctx.closePath();
+    sctx.fill();
+    sctx.globalAlpha = 1;
+  }
+
+  function drawTrees(){
+    const tree = (x, floorY, s)=>{
+      sctx.fillStyle = '#141030';
+      sctx.fillRect(x, floorY - 7*s, 2, 7*s);
+      sctx.fillStyle = '#16302e';
+      sctx.fillRect(x - 5*s, floorY - 12*s, 12*s, 5*s);
+      sctx.fillRect(x - 3*s, floorY - 15*s, 8*s, 4*s);
+      sctx.fillStyle = '#1d4038';
+      sctx.fillRect(x - 4*s, floorY - 11*s, 4*s, 2*s);
+    };
+    tree(18, 74, 1);
+    tree(64, 74, 1);
+    tree(210, 74, 1);
+    tree(232, 74, 1);
+  }
+
+  function drawLamp(x, t){
+    sctx.fillStyle = '#241c58';
+    sctx.fillRect(x, 58, 1, 16);
+    sctx.fillStyle = Math.sin(t*2 + x) > -0.6 ? '#ffd95e' : '#7a6a2e';
+    sctx.fillRect(x - 1, 57, 3, 1);
+    sctx.globalAlpha = 0.08;
+    sctx.fillStyle = '#ffd95e';
+    sctx.fillRect(x - 5, 58, 11, 14);
+    sctx.globalAlpha = 1;
+  }
+
+  function drawPerson(p, t){
+    const bob = Math.round(Math.sin(t*2.2 + p.p) * 1);
+    const x = Math.round(p.x);
+    const y = Math.round(p.y + bob);
+    const w = Math.round(p.h * 0.62);
+
+    sctx.fillStyle = p.col;
+    sctx.fillRect(x, y - p.h + 2, w, p.h - 2);
+    sctx.fillStyle = '#2c2356';
+    sctx.fillRect(x - 1, y - p.h - 1, w + 2, 3);
+
+    if(p.phone){
+      const glow = Math.sin(t*7 + p.p) > 0.35;
+      sctx.fillStyle = glow ? '#c9fdff' : '#5d7f9e';
+      sctx.fillRect(x + w - 2, y - p.h + 4, 1, 2);
+      if(glow){
+        sctx.globalAlpha = 0.16;
+        sctx.fillStyle = '#c9fdff';
+        sctx.fillRect(x + w - 3, y - p.h + 3, 3, 4);
+        sctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  function drawCrowd(t){
+    const shown = Math.round(peopleShown);
+    const c0 = Math.min(crowdRows[0].length, Math.round(shown * 0.4));
+    const c1 = Math.min(crowdRows[1].length, Math.round(shown * 0.33));
+    const c2 = Math.min(crowdRows[2].length, Math.max(0, shown - c0 - c1));
+    for(let i=0;i<c2;i++) drawPerson(crowdRows[2][i], t);
+    for(let i=0;i<c1;i++) drawPerson(crowdRows[1][i], t);
+    for(let i=0;i<c0;i++) drawPerson(crowdRows[0][i], t);
+  }
+
+  function drawYou(t){
+    const bob = Math.round(Math.sin(t*3) * 1);
+    const ox = 176, oy = 79 + bob;
+
+    sctx.globalAlpha = 0.16;
+    sctx.fillStyle = state.avatar.shirt;
+    sctx.fillRect(ox - 3, oy - 1, 22, 23);
+    sctx.globalAlpha = 1;
+
+    drawAvatar(sctx, ox, oy, 1, state.avatar);
+
+    sctx.fillStyle = '#ffd95e';
+    sctx.font = 'bold 5px "Microsoft YaHei", monospace';
+    sctx.textAlign = 'center';
+    sctx.fillText('你', ox + 8, oy - 3 + Math.round(Math.sin(t*4) * 1.5));
+    sctx.textAlign = 'left';
+  }
+
+  let lastFlashAt = 0;
+  function drawScene(t){
+    const bands = ['#0a0720','#100b2d','#171140','#1f1650','#271a5c'];
+    for(let i=0;i<bands.length;i++){
+      sctx.fillStyle = bands[i];
+      sctx.fillRect(0, i*6, SW, 6);
+    }
+
+    sctx.fillStyle = '#dfe6ff';
+    for(let i=0;i<stars.length;i++){
+      const s = stars[i];
+      sctx.globalAlpha = 0.2 + 0.6*Math.abs(Math.sin(t*1.3 + s.p));
+      sctx.fillRect(s.x, s.y, 1, 1);
+    }
+    sctx.globalAlpha = 1;
+
+    sctx.fillStyle = '#ffe9a8';
+    sctx.fillRect(212, 8, 5, 1);
+    sctx.fillRect(210, 9, 9, 1);
+    sctx.fillRect(209, 10, 11, 4);
+    sctx.fillRect(210, 14, 9, 1);
+    sctx.fillStyle = '#c9a86a';
+    sctx.fillRect(212, 11, 1, 1);
+    sctx.fillRect(216, 12, 1, 1);
+
+    for(let i=0;i<buildings.length;i++){
+      const b = buildings[i];
+      const top = 74 - b.h;
+      sctx.fillStyle = '#120c30';
+      sctx.fillRect(b.x, top, b.w, b.h);
+      sctx.fillStyle = '#1a1145';
+      sctx.fillRect(b.x, top, b.w, 1);
+      for(let j=0;j<b.wins.length;j++){
+        const win = b.wins[j];
+        const flick = Math.sin(t*1.7 + win.p) > 0.92;
+        sctx.fillStyle = flick ? '#2a2366' : win.c;
+        sctx.globalAlpha = flick ? 0.5 : 0.85;
+        sctx.fillRect(b.x + win.x, top + win.y, 1, 2);
+      }
+      sctx.globalAlpha = 1;
+    }
+
+    drawTrees();
+
+    sctx.fillStyle = '#0b0819';
+    sctx.fillRect(0, 74, SW, SH - 74);
+    sctx.fillStyle = '#130e30';
+    sctx.fillRect(0, 72, SW, 3);
+    for(let x=0;x<SW;x+=12){
+      sctx.fillStyle = (x/12) % 2 ? '#121039' : '#0f0c2e';
+      sctx.fillRect(x, 80, 12, 20);
+    }
+    sctx.fillStyle = '#0a0716';
+    sctx.fillRect(0, 96, SW, 4);
+
+    drawLamp(46, t);
+    drawLamp(198, t);
+    drawBoard(t);
+    drawCrowd(t);
+    drawYou(t);
+    drawParts();
+
+    if(t - lastFlashAt > 2.4 && peopleShown > 10){
+      lastFlashAt = t;
+      const p = crowdRows[1][Math.floor(Math.random()*crowdRows[1].length)];
+      spawnFlash(p.x, p.y - 8);
+    }
+  }
+
+  let lastT = 0;
+  function frame(ts){
+    const t = ts / 1000;
+    const dt = Math.min(0.05, (t - lastT) || 0.016);
+    lastT = t;
+
+    const p = selectedPost();
+    const targetHeat = p ? p.heat : 0;
+    heatShown += (targetHeat - heatShown) * Math.min(1, dt*2.5);
+
+    const targetPeople = clamp(Math.round(heatShown/12), 6, 56);
+    peopleShown += (targetPeople - peopleShown) * Math.min(1, dt*3);
+
+    drawScene(t);
+    tickParts(dt);
+    requestAnimationFrame(frame);
+  }
+
+  /* ================= 弹幕 ================= */
+  function renderTicker(){
+    const list = state.campus ? state.posts.filter(p=>p.campus === state.campus) : [];
+    const items = list.slice(0, 6).map(p=>'「' + p.author + '」' + p.title);
+    reseed(CHATTER).slice(0, 4).forEach(t=>items.push(t));
+    const line = '  ◆  ' + reseed(items).join('  ◆  ') + '  ◆  ';
+    els.tickerTrack.innerHTML = '<span>' + esc(line) + '</span><span>' + esc(line) + '</span>';
+  }
+
+  /* ================= 汇总渲染 ================= */
+  function renderAll(){
+    renderCampusChip();
+    renderTabs();
+    ensureSelection();
+    renderFeed();
+    renderRank();
+    renderSceneMeta();
+    renderSideStats();
+    renderTicker();
+    paintCrowd(false);
+    const p = selectedPost();
+    setEcho(p ? (p.mine !== null ? '你已经把它定在「' + TIERS[p.mine].label + '」。' : '这条瓜，你怎么定？') : '先选校园，或者发第一条瓜。');
+  }
+
+  /* ================= 事件 ================= */
+  els.campusChip.addEventListener('click', openCampusModal);
+  els.campusClose.addEventListener('click', ()=>{
+    if(!state.campus){ toast('先选一个校园'); return; }
+    els.campusModal.classList.remove('show');
+  });
+
+  els.userChip.addEventListener('click', openAvatarModal);
+  els.avatarClose.addEventListener('click', closeAvatarModal);
+  els.randomAvatar.addEventListener('click', randomAvatar);
+  els.saveAvatar.addEventListener('click', saveAvatar);
+  els.avatarName.addEventListener('input', ()=>{
+    if(avatarDraft) avatarDraft.name = els.avatarName.value;
+  });
+
+  els.soundBtn.addEventListener('click', ()=>{
+    state.sound = !state.sound;
+    els.soundBtn.setAttribute('aria-pressed', String(state.sound));
+    els.soundBtn.textContent = state.sound ? '♪ ON' : '♪ OFF';
+    if(state.sound) beep(720, 0.05);
+  });
+
+  els.joinBtn.addEventListener('click', join);
+  els.publishBtn.addEventListener('click', openPostModal);
+  els.postClose.addEventListener('click', closePostModal);
+  els.submitPost.addEventListener('click', submitPost);
+  els.postTitle.addEventListener('input', ()=>els.titleField.classList.remove('error'));
+
+  els.fileInput.addEventListener('change', (e)=>{
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    if(f.size > 5 * 1024 * 1024){
+      toast('图片别太大，5MB 以内');
+      els.fileInput.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      shrinkImage(reader.result, (dataUrl)=>{
+        pendingImage = dataUrl;
+        els.uploadPreview.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = pendingImage;
+        els.uploadPreview.appendChild(img);
+      });
+    };
+    reader.readAsDataURL(f);
+  });
+
+  // 上传前压到 900px 内，避免大图拖慢同步
+  function shrinkImage(dataUrl, done){
+    const img = new Image();
+    img.onload = ()=>{
+      const max = 900;
+      const r = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      if(r >= 1 && dataUrl.length < 800 * 1024){
+        done(dataUrl);
+        return;
+      }
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.naturalWidth * r);
+      cv.height = Math.round(img.naturalHeight * r);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      done(cv.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = ()=>done(dataUrl);
+    img.src = dataUrl;
+  }
+
+  document.querySelectorAll('.modal').forEach(m=>{
+    m.addEventListener('click', (e)=>{
+      if(e.target !== m) return;
+      if(m === els.campusModal && !state.campus) return;
+      m.classList.remove('show');
+      if(m === els.postModal) pendingImage = null;
+      if(m === els.avatarModal) avatarDraft = null;
+    });
+  });
+
+  window.addEventListener('keydown', (e)=>{
+    const openModal = document.querySelector('.modal.show');
+    if(e.key === 'Escape'){
+      if(openModal){
+        if(openModal === els.campusModal && !state.campus) return;
+        openModal.classList.remove('show');
+        if(openModal === els.postModal) pendingImage = null;
+        if(openModal === els.avatarModal) avatarDraft = null;
+      }
+      return;
+    }
+    if(openModal) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if(tag === 'input' || tag === 'textarea') return;
+    if(e.code === 'Space'){
+      e.preventDefault();
+      if(!e.repeat) join();
+    }
+  });
+
+  // 多用户同步：每 5 秒拉一次当前校园的最新状态
+  setInterval(async ()=>{
+    if(document.hidden || !state.campus) return;
+    try{
+      const d = await api('/api/posts?campus=' + encodeURIComponent(state.campus) + '&client=' + CLIENT);
+      ONLINE.value = true;
+      applyRemote(d.posts || []);
+      const sig = signatureOf(state.posts);
+      if(sig !== lastSignature){
+        lastSignature = sig;
+        renderFeed();
+        renderRank();
+        renderSceneMeta();
+        renderSideStats();
+        renderTicker();
+      }
+    }catch(e){
+      ONLINE.value = false;
+    }
+  }, 5000);
+
+  /* ================= 启动 ================= */
+  loadProfile();
+  seedAll();
+  buildAvatarControls();
+  drawMiniAvatar();
+  renderCampusChip();
+  renderTabs();
+  loadCounts();
+
+  if(state.campus){
+    renderAll();
+    syncCampus().then(ok=>{
+      if(ok){
+        renderAll();
+        toast('已连上瓜田服务器 · ' + state.posts.length + ' 个瓜');
+      }
+    });
+  }else{
+    renderFeed();
+    renderTicker();
+    openCampusModal();
+  }
+
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
